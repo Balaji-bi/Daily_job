@@ -1,0 +1,97 @@
+from google.colab import files
+from PIL import Image
+import numpy as np
+import pandas as pd
+import os
+
+# Global CSV filename to store image data
+csv_filename = 'xray_images_data.csv'
+
+# Initialize an empty DataFrame with columns for filename and pixel data
+columns = ['Filename'] + [f'pixel_{i}' for i in range(128 * 128)]  # Adjust based on image size
+df = pd.DataFrame(columns=columns)
+
+def image_to_csv(image_path, csv_filename):
+    """
+    Convert an image to a row of pixel data and append it to the CSV file.
+    """
+    global df
+
+    # Open image and process
+    image = Image.open(image_path).convert('L')  # Convert to grayscale
+    image = image.resize((128, 128))  # Resize to 128x128 pixels, adjust as needed
+    image_array = np.array(image).flatten()  # Flatten the image array
+
+    # Create a row with the filename and pixel data
+    row = [os.path.basename(image_path)] + list(image_array)
+
+    # Append the row to the DataFrame and save to CSV
+    df.loc[len(df)] = row
+    df.to_csv(csv_filename, index=False)
+
+def upload_and_process_images():
+    """
+    Allow the user to upload images and process them into a CSV file.
+    """
+    while True:
+        # Upload files
+        uploaded = files.upload()
+        if not uploaded:
+            print("No file uploaded. Exiting upload process.")
+            break
+
+        # Process each uploaded file
+        for filename in uploaded.keys():
+            image_to_csv(filename, csv_filename)
+            print(f"Processed and added {filename} to the CSV file.")
+
+        # Ask user if they want to continue
+        choice = input("Upload another image? (yes/no): ")
+        if choice.lower() != 'yes':
+            break
+
+def download_csv():
+    """
+    Provide a link to download the CSV file.
+    """
+    files.download(csv_filename)
+
+# Create UI buttons in Colab for interactive actions
+import ipywidgets as widgets
+from IPython.display import display, clear_output
+
+# Stop button
+stop_button = widgets.Button(description="Stop Uploads")
+# Download button
+download_button = widgets.Button(description="Download CSV")
+
+# Button click handlers
+def on_stop_button_clicked(b):
+    print("Stopping the upload process.")
+    stop_button.clicked = True
+
+def on_download_button_clicked(b):
+    print("Downloading CSV file.")
+    download_csv()
+
+# Assign handlers
+stop_button.on_click(on_stop_button_clicked)
+download_button.on_click(on_download_button_clicked)
+
+# Display buttons
+display(stop_button)
+display(download_button)
+
+# Reset stop button state
+stop_button.clicked = False
+
+# Continuous upload and process loop
+try:
+    while not stop_button.clicked:
+        upload_and_process_images()
+        clear_output(wait=True)  # Clear previous outputs for a clean interface
+except KeyboardInterrupt:
+    print("Upload process interrupted.")
+
+# Final message
+print("Upload process completed. Use the 'Download CSV' button to download the file.")
